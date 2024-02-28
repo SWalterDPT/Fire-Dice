@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'sign_in_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -13,6 +15,8 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
+
 
 void signUpWithEmail() async {
   final String email = emailController.text.trim();
@@ -26,10 +30,20 @@ void signUpWithEmail() async {
   }
 
   try {
-    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+    UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
       email: email,
       password: password,
-    );
+      );
+      User? user = userCredential.user;
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'username': usernameController.text.trim(),
+        'email': email,
+        'wins': 0,
+        'losses': 0,
+        'draws': 0,
+        });
+      }
     if (!mounted) return; // Check if the widget is still in the widget tree.
     Navigator.pushReplacement(
       context,
@@ -69,6 +83,11 @@ Widget build(BuildContext context) {
             decoration: const InputDecoration(labelText: 'Password'),
             obscureText: true,
           ),
+          TextField(
+            controller: usernameController,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
+
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: signUpWithEmail,

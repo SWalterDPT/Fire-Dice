@@ -2,48 +2,62 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'sign_up_screen.dart'; 
 import 'dice_game.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _SignInScreenState createState() => _SignInScreenState();
+  SignInScreenState createState() => SignInScreenState();
 }
 
-class _SignInScreenState extends State<SignInScreen> {
+class SignInScreenState extends State<SignInScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+Future<void> ensureUserDocumentExists(User user) async {
+  final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+  final docSnapshot = await userDocRef.get();
+
+  if (!docSnapshot.exists) {
+    await userDocRef.set({
+      'email': user.email, 
+      'wins': 0,
+      'losses': 0,
+      'draws': 0,
+    });
+  }
+}
 
   void signInWithEmail() async {
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
 
-if (email.isEmpty || password.isEmpty) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Please fill in all fields')),
-  );//Handle error if email or password isn't filled in
-  return;
-}
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
 
-
-try {
-  await FirebaseAuth.instance.signInWithEmailAndPassword(
-    email: email,
-    password: password,
-  );
-  if (!mounted) return;
-  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DiceGame())); // Navigate to DiceGame after signing in
-} on FirebaseAuthException catch (e) {
-  if (!mounted) return;
+    try {
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await ensureUserDocumentExists(userCredential.user!); // Ensure the document exists after successful sign-in
+      if (!mounted) return;
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DiceGame()));
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text("Sign In Error"),
-          content: Text(e.message ?? "An unknown error occurred"),//Handle general errors
+          content: Text(e.message ?? "An unknown error occurred"),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),//Clear error screen
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text("OK"),
             ),
           ],
@@ -53,7 +67,7 @@ try {
   }
 
   @override
-  Widget build(BuildContext context) {
+Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Sign In")),
       body: Padding(
